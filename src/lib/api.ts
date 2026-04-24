@@ -166,9 +166,20 @@ export const crearLista = (nombre: string) =>
 export const obtenerLista = (id: string) =>
   apiFetch<ListaDetalleResponse>(`/api/listas/${id}`);
 
+/** PATCH /api/listas/:id — Editar nombre o allowEdit */
+export const actualizarLista = (id: string, data: { nombre?: string; allowEdit?: boolean }) =>
+  apiFetch<ListaResponse>(`/api/listas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+
 /** DELETE /api/listas/:id — Eliminar una lista */
 export const eliminarLista = (id: string) =>
   apiFetch<void>(`/api/listas/${id}`, { method: 'DELETE' });
+
+/** GET /api/compartida/:token — Vista pública de lista compartida (sin auth) */
+export const obtenerListaCompartida = (token: string) =>
+  apiFetch<ListaDetalleResponse>(`/api/compartida/${token}`);
 
 // ═══════════════════════════════════════════════════
 // Servicios de Ítems
@@ -201,3 +212,21 @@ export const buscarPorBarcode = (barcode: string) =>
 
 export const buscarPorTexto = (texto: string) =>
   apiFetch<ProductoResponse[]>(`/api/productos/buscar?texto=${encodeURIComponent(texto)}`);
+
+/** POST /api/productos — Guardar un producto personal para uso futuro */
+export const crearProductoPersonal = (data: {
+  nombre: string;
+  marca?: string;
+  barcode?: string;
+  unidad?: string;
+  precio?: number;
+}) =>
+  apiFetch<ProductoResponse>('/api/productos', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+/** DELETE /api/productos/:id — Eliminar producto personal */
+export const eliminarProducto = (id: string) =>
+  apiFetch<void>(`/api/productos/${id}`, { method: 'DELETE' });
+

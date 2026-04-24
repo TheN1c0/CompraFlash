@@ -15,6 +15,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AuthScreen from './pages/AuthScreen';
 import Dashboard from './pages/Dashboard';
 import ListDetails from './pages/ListDetails';
+import SharedList from './pages/SharedList';
 
 function App() {
   const { setOfflineStatus, initStore } = useStore();
@@ -38,8 +39,9 @@ function App() {
 
   return (
     <Routes>
-      {/* Ruta pública */}
+      {/* Rutas públicas */}
       <Route path="/auth" element={<AuthScreen />} />
+      <Route path="/compartida/:token" element={<SharedList />} />
 
       {/* Rutas protegidas */}
       <Route

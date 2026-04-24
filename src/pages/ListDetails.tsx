@@ -1,25 +1,27 @@
 /**
  * ListDetails — Vista de detalle de una lista individual.
  * 
- * Muestra todos los ítems de la lista con checkboxes interactivos,
- * permite agregar nuevos ítems (manual o por escáner de barras),
- * y calcula el total estimado en tiempo real.
- * 
- * PRINCIPIO SOLID — SRP: 
- * La vista gestiona la UI. Las llamadas al backend van por api.ts.
- * El componente BarcodeScanner se aísla en su propio módulo.
+ * Funcionalidades completas según especificaciones:
+ * - Checkboxes interactivos para marcar comprado
+ * - Agregar ítems manual o por escáner
+ * - Editar nombre de la lista
+ * - Toggle de edición colaborativa (allowEdit)
+ * - Copiar link para compartir (shareToken)
+ * - Total estimado en tiempo real
+ * - Guardar producto no encontrado en catálogo personal
  */
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   obtenerLista, agregarItem, actualizarItem, eliminarItem,
-  buscarPorBarcode,
+  actualizarLista, buscarPorBarcode, crearProductoPersonal,
   type ListaDetalleResponse, type ItemResponse
 } from '../lib/api';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { 
   ArrowLeft, Plus, ScanBarcode, Trash2, Check, 
-  Loader2, ShoppingBag
+  Loader2, ShoppingBag, Share2, Users, Edit3,
+  Save, X, CheckCircle
 } from 'lucide-react';
 import './ListDetails.css';
 
@@ -31,20 +33,34 @@ export default function ListDetails() {
   const [items, setItems] = useState<ItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estado del modal de agregar ítem
+  // Editar nombre
+  const [editingName, setEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
+
+  // Modal agregar ítem
   const [showAddModal, setShowAddModal] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevaCantidad, setNuevaCantidad] = useState('1');
   const [nuevaUnidad, setNuevaUnidad] = useState('');
   const [nuevoPrecio, setNuevoPrecio] = useState('');
+  const [nuevoBarcode, setNuevoBarcode] = useState('');
   const [agregando, setAgregando] = useState(false);
+  const [guardarProducto, setGuardarProducto] = useState(false);
 
-  // Estado del escáner
+  // Escáner
   const [showScanner, setShowScanner] = useState(false);
+
+  // Feedback toast
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     if (id) cargarLista();
   }, [id]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
 
   const cargarLista = async () => {
     setLoading(true);
@@ -59,6 +75,50 @@ export default function ListDetails() {
     }
   };
 
+  // ═══════════ Editar nombre de lista ═══════════
+  const handleStartEdit = () => {
+    setEditedName(lista?.nombre || '');
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!editedName.trim() || !id) return;
+    try {
+      await actualizarLista(id, { nombre: editedName.trim() });
+      setLista((prev) => prev ? { ...prev, nombre: editedName.trim() } : prev);
+      setEditingName(false);
+      showToast('Nombre actualizado');
+    } catch (err) {
+      console.error('Error actualizando nombre:', err);
+    }
+  };
+
+  // ═══════════ Toggle edición colaborativa ═══════════
+  const handleToggleAllowEdit = async () => {
+    if (!id || !lista) return;
+    try {
+      await actualizarLista(id, { allowEdit: !lista.allowEdit });
+      setLista((prev) => prev ? { ...prev, allowEdit: !prev.allowEdit } : prev);
+      showToast(lista.allowEdit ? 'Edición colaborativa desactivada' : 'Edición colaborativa activada');
+    } catch (err) {
+      console.error('Error cambiando permisos:', err);
+    }
+  };
+
+  // ═══════════ Compartir link ═══════════
+  const handleShare = async () => {
+    if (!lista) return;
+    const shareUrl = `${window.location.origin}/compartida/${lista.shareToken}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast('¡Link copiado al portapapeles!');
+    } catch {
+      // Fallback para navegadores que no soporten clipboard API
+      showToast(`Link: ${shareUrl}`);
+    }
+  };
+
+  // ═══════════ Agregar ítem ═══════════
   const handleAgregarItem = async () => {
     if (!nuevoNombre.trim() || !id) return;
     setAgregando(true);
@@ -68,13 +128,32 @@ export default function ListDetails() {
         cantidad: parseInt(nuevaCantidad) || 1,
         unidad: nuevaUnidad.trim() || undefined,
         precio: nuevoPrecio ? parseFloat(nuevoPrecio) : undefined,
+        barcode: nuevoBarcode || undefined,
       });
       setItems((prev) => [...prev, nuevo]);
+
+      // Si el usuario quiere guardar el producto para uso futuro
+      if (guardarProducto && nuevoBarcode) {
+        try {
+          await crearProductoPersonal({
+            nombre: nuevoNombre.trim(),
+            barcode: nuevoBarcode,
+            unidad: nuevaUnidad.trim() || undefined,
+            precio: nuevoPrecio ? parseFloat(nuevoPrecio) : undefined,
+          });
+          showToast('Producto guardado en tu catálogo personal');
+        } catch {
+          // No es crítico si falla
+        }
+      }
+
       // Limpiar formulario
       setNuevoNombre('');
       setNuevaCantidad('1');
       setNuevaUnidad('');
       setNuevoPrecio('');
+      setNuevoBarcode('');
+      setGuardarProducto(false);
       setShowAddModal(false);
     } catch (err) {
       console.error('Error agregando ítem:', err);
@@ -107,6 +186,7 @@ export default function ListDetails() {
 
   const handleBarcodeDetected = useCallback(async (code: string) => {
     setShowScanner(false);
+    setNuevoBarcode(code);
     try {
       const productos = await buscarPorBarcode(code);
       if (productos.length > 0) {
@@ -114,19 +194,23 @@ export default function ListDetails() {
         setNuevoNombre(p.nombre);
         setNuevoPrecio(p.precioEstimado?.toString() || '');
         setNuevaUnidad(p.unidad || '');
-        setShowAddModal(true);
+        setGuardarProducto(false);
+        showToast(`Producto encontrado: ${p.nombre}`);
       } else {
-        setNuevoNombre(`Producto (${code})`);
-        setShowAddModal(true);
+        setNuevoNombre('');
+        setGuardarProducto(true); // Sugerir guardar
+        showToast('Producto no encontrado. Ingresa los datos manualmente.');
       }
+      setShowAddModal(true);
     } catch (err) {
       console.error('Error buscando por barcode:', err);
-      setNuevoNombre(`Producto (${code})`);
+      setNuevoNombre('');
+      setGuardarProducto(true);
       setShowAddModal(true);
     }
   }, []);
 
-  // Cálculo del total estimado en tiempo real
+  // Cálculo del total estimado
   const totalEstimado = items.reduce((sum, item) => {
     return sum + (item.subtotal || 0);
   }, 0);
@@ -147,14 +231,58 @@ export default function ListDetails() {
 
   return (
     <div className="container">
+      {/* Toast de feedback */}
+      {toast && (
+        <div className="toast">
+          <CheckCircle size={16} />
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <header className="detail-header">
         <button className="btn-icon" onClick={() => navigate('/')}>
           <ArrowLeft size={24} />
         </button>
-        <h1 className="detail-title">{lista?.nombre || 'Lista'}</h1>
+
+        {editingName ? (
+          <div className="edit-name-row">
+            <input
+              type="text"
+              className="input-field edit-name-input"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+              autoFocus
+            />
+            <button className="btn-icon" onClick={handleSaveName}><Save size={18} /></button>
+            <button className="btn-icon" onClick={() => setEditingName(false)}><X size={18} /></button>
+          </div>
+        ) : (
+          <h1 className="detail-title" onClick={handleStartEdit} title="Click para editar nombre">
+            {lista?.nombre || 'Lista'}
+            <Edit3 size={14} className="edit-icon" />
+          </h1>
+        )}
+
         <div style={{ width: 40 }} />
       </header>
+
+      {/* Barra de acciones de la lista */}
+      <div className="list-actions-bar">
+        <button
+          className={`action-chip ${lista?.allowEdit ? 'active' : ''}`}
+          onClick={handleToggleAllowEdit}
+          title={lista?.allowEdit ? 'Desactivar edición colaborativa' : 'Activar edición colaborativa'}
+        >
+          <Users size={14} />
+          {lista?.allowEdit ? 'Colaborativa ON' : 'Colaborativa OFF'}
+        </button>
+        <button className="action-chip" onClick={handleShare}>
+          <Share2 size={14} />
+          Compartir
+        </button>
+      </div>
 
       {/* Resumen */}
       <div className="detail-summary glass-panel">
@@ -181,7 +309,7 @@ export default function ListDetails() {
         <button
           className="btn-primary"
           style={{ flex: 1 }}
-          onClick={() => setShowAddModal(true)}
+          onClick={() => { setNuevoBarcode(''); setGuardarProducto(false); setShowAddModal(true); }}
         >
           <Plus size={20} /> Agregar Ítem
         </button>
@@ -246,6 +374,9 @@ export default function ListDetails() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Agregar Ítem</h2>
+            {nuevoBarcode && (
+              <p className="barcode-hint">Código: <code>{nuevoBarcode}</code></p>
+            )}
             <div className="add-form">
               <input
                 type="text"
@@ -297,6 +428,18 @@ export default function ListDetails() {
                   />
                 </div>
               </div>
+
+              {/* Opción de guardar producto en catálogo personal */}
+              {nuevoBarcode && (
+                <label className="save-product-toggle">
+                  <input
+                    type="checkbox"
+                    checked={guardarProducto}
+                    onChange={(e) => setGuardarProducto(e.target.checked)}
+                  />
+                  <span>Guardar este producto en mi catálogo personal</span>
+                </label>
+              )}
             </div>
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setShowAddModal(false)}>
