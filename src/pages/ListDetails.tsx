@@ -14,7 +14,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   obtenerLista, agregarItem, actualizarItem, eliminarItem,
   buscarPorBarcode,
-  type ListaResponse, type ItemResponse
+  type ListaDetalleResponse, type ItemResponse
 } from '../lib/api';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { 
@@ -27,7 +27,7 @@ export default function ListDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [lista, setLista] = useState<ListaResponse | null>(null);
+  const [lista, setLista] = useState<ListaDetalleResponse | null>(null);
   const [items, setItems] = useState<ItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,8 +66,8 @@ export default function ListDetails() {
       const nuevo = await agregarItem(id, {
         nombre: nuevoNombre.trim(),
         cantidad: parseInt(nuevaCantidad) || 1,
-        unidad: nuevaUnidad || undefined,
-        precioEstimado: nuevoPrecio ? parseFloat(nuevoPrecio) : undefined,
+        unidad: nuevaUnidad.trim() || undefined,
+        precio: nuevoPrecio ? parseFloat(nuevoPrecio) : undefined,
       });
       setItems((prev) => [...prev, nuevo]);
       // Limpiar formulario
@@ -116,7 +116,6 @@ export default function ListDetails() {
         setNuevaUnidad(p.unidad || '');
         setShowAddModal(true);
       } else {
-        // No se encontró producto, abrir modal vacío con hint
         setNuevoNombre(`Producto (${code})`);
         setShowAddModal(true);
       }
@@ -127,14 +126,12 @@ export default function ListDetails() {
     }
   }, []);
 
-  // Cálculo del total estimado
+  // Cálculo del total estimado en tiempo real
   const totalEstimado = items.reduce((sum, item) => {
-    if (!item.comprado) {
-      return sum + (item.precioEstimado || 0) * item.cantidad;
-    }
-    return sum;
+    return sum + (item.subtotal || 0);
   }, 0);
 
+  const itemsPendientes = items.filter((i) => !i.comprado).length;
   const itemsComprados = items.filter((i) => i.comprado).length;
 
   if (loading) {
@@ -156,14 +153,14 @@ export default function ListDetails() {
           <ArrowLeft size={24} />
         </button>
         <h1 className="detail-title">{lista?.nombre || 'Lista'}</h1>
-        <div style={{ width: 40 }} /> {/* spacer */}
+        <div style={{ width: 40 }} />
       </header>
 
       {/* Resumen */}
       <div className="detail-summary glass-panel">
         <div className="summary-stat">
-          <span className="summary-number">{items.length}</span>
-          <span className="summary-label">ítems</span>
+          <span className="summary-number">{itemsPendientes}</span>
+          <span className="summary-label">pendientes</span>
         </div>
         <div className="summary-divider" />
         <div className="summary-stat">
@@ -224,7 +221,12 @@ export default function ListDetails() {
                 <span className="item-name">{item.nombre}</span>
                 <span className="item-meta">
                   {item.cantidad} {item.unidad || 'un'}
-                  {item.precioEstimado ? ` · $${(item.precioEstimado * item.cantidad).toLocaleString()}` : ''}
+                  {item.precio != null && (
+                    <> · <span className="item-price">${item.precio.toLocaleString()}</span> c/u</>
+                  )}
+                  {item.subtotal != null && item.subtotal > 0 && (
+                    <> = <strong>${item.subtotal.toLocaleString()}</strong></>
+                  )}
                 </span>
               </div>
 
@@ -254,28 +256,46 @@ export default function ListDetails() {
                 autoFocus
               />
               <div className="add-form-row">
-                <input
-                  type="number"
-                  className="input-field input-sm"
-                  placeholder="Cantidad"
-                  value={nuevaCantidad}
-                  onChange={(e) => setNuevaCantidad(e.target.value)}
-                  min="1"
-                />
-                <input
-                  type="text"
-                  className="input-field input-sm"
-                  placeholder="Unidad (kg, un...)"
-                  value={nuevaUnidad}
-                  onChange={(e) => setNuevaUnidad(e.target.value)}
-                />
-                <input
-                  type="number"
-                  className="input-field input-sm"
-                  placeholder="Precio $"
-                  value={nuevoPrecio}
-                  onChange={(e) => setNuevoPrecio(e.target.value)}
-                />
+                <div className="input-group">
+                  <label className="input-label">Cantidad</label>
+                  <input
+                    type="number"
+                    className="input-field input-sm"
+                    placeholder="1"
+                    value={nuevaCantidad}
+                    onChange={(e) => setNuevaCantidad(e.target.value)}
+                    min="1"
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Unidad</label>
+                  <select
+                    className="input-field input-sm"
+                    value={nuevaUnidad}
+                    onChange={(e) => setNuevaUnidad(e.target.value)}
+                  >
+                    <option value="">un</option>
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="lt">lt</option>
+                    <option value="ml">ml</option>
+                    <option value="paq">paq</option>
+                    <option value="caja">caja</option>
+                    <option value="botella">botella</option>
+                    <option value="docena">docena</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Precio $</label>
+                  <input
+                    type="number"
+                    className="input-field input-sm"
+                    placeholder="0"
+                    value={nuevoPrecio}
+                    onChange={(e) => setNuevoPrecio(e.target.value)}
+                    min="0"
+                  />
+                </div>
               </div>
             </div>
             <div className="modal-actions">

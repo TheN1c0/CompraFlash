@@ -146,7 +146,7 @@ export default function Dashboard() {
                 </button>
               </div>
               <div className="lista-card-meta">
-                <span>{lista.items?.length || 0} ítems</span>
+                <span>{lista.cantidadItems || 0} ítems</span>
                 <span className="lista-total">
                   ${lista.totalEstimado?.toLocaleString() || 0}
                 </span>

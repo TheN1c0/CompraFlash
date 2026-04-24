@@ -4,7 +4,6 @@
  * PRINCIPIO SOLID — SRP:
  * Este módulo tiene UNA sola responsabilidad: ejecutar peticiones HTTP
  * hacia la API de .NET inyectando automáticamente el JWT Bearer.
- * No maneja estado, no maneja UI, no maneja caché.
  * 
  * PRINCIPIO SOLID — OCP:
  * Para agregar un nuevo endpoint, simplemente creas una nueva función
@@ -15,16 +14,13 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5084';
 
 /**
  * Función base que envuelve `fetch()` inyectando headers de autenticación.
- * Si el usuario tiene un token JWT guardado en sessionStorage/Zustand,
- * lo adjunta automáticamente como `Authorization: Bearer <token>`.
  */
 async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // Leer el token desde sessionStorage (sincrónico, rápido)
   const sessionRaw = sessionStorage.getItem('compraflash_token');
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -44,7 +40,6 @@ async function apiFetch<T>(
     throw new ApiError(response.status, errorBody);
   }
 
-  // Si la respuesta es 204 No Content, retornar null
   if (response.status === 204) {
     return null as T;
   }
@@ -52,10 +47,6 @@ async function apiFetch<T>(
   return response.json();
 }
 
-/**
- * Clase de error personalizada para errores de API.
- * Incluye el código HTTP y el cuerpo del error.
- */
 export class ApiError extends Error {
   constructor(public status: number, public body: string) {
     super(`API Error ${status}: ${body}`);
@@ -64,7 +55,7 @@ export class ApiError extends Error {
 }
 
 // ═══════════════════════════════════════════════════
-// Servicios de Autenticación
+// Interfaces alineadas con los DTOs del Backend
 // ═══════════════════════════════════════════════════
 
 export interface AuthResponse {
@@ -75,18 +66,84 @@ export interface AuthResponse {
   expiresAt: string;
 }
 
-/** POST /api/auth/anonimo — Crea cuenta temporal sin Google */
+/** Corresponde a ListaResponse del backend (sin ítems) */
+export interface ListaResponse {
+  id: string;
+  nombre: string;
+  shareToken: string;
+  allowEdit: boolean;
+  createdAt: string;
+  cantidadItems: number;
+  totalEstimado: number | null;
+}
+
+/** Corresponde a ListaDetalleResponse del backend (con ítems) */
+export interface ListaDetalleResponse {
+  id: string;
+  nombre: string;
+  shareToken: string;
+  allowEdit: boolean;
+  createdAt: string;
+  totalEstimado: number | null;
+  items: ItemResponse[];
+}
+
+/** Corresponde a ItemResponse del backend */
+export interface ItemResponse {
+  id: string;
+  listId: string;
+  nombre: string;
+  cantidad: number;
+  unidad: string | null;
+  precio: number | null;
+  barcode: string | null;
+  comprado: boolean;
+  subtotal: number | null;
+  createdAt: string;
+}
+
+/** Corresponde a CrearItemRequest del backend */
+export interface CrearItemRequest {
+  nombre: string;
+  cantidad: number;
+  unidad?: string;
+  precio?: number;
+  barcode?: string;
+  productId?: string;
+}
+
+/** Corresponde a ActualizarItemRequest del backend */
+export interface ActualizarItemRequest {
+  nombre?: string;
+  cantidad?: number;
+  unidad?: string;
+  precio?: number;
+  comprado?: boolean;
+}
+
+export interface ProductoResponse {
+  id: string;
+  nombre: string;
+  marca: string | null;
+  barcode: string | null;
+  unidad: string | null;
+  precioEstimado: number | null;
+  isGlobal: boolean;
+}
+
+// ═══════════════════════════════════════════════════
+// Servicios de Autenticación
+// ═══════════════════════════════════════════════════
+
 export const loginAnonimo = () =>
   apiFetch<AuthResponse>('/api/auth/anonimo', { method: 'POST' });
 
-/** POST /api/auth/google — Envía el token de Google para validación */
 export const loginGoogle = (googleToken: string) =>
   apiFetch<AuthResponse>('/api/auth/google', {
     method: 'POST',
     body: JSON.stringify({ token: googleToken }),
   });
 
-/** POST /api/auth/renovar — Renueva el JWT actual */
 export const renovarToken = () =>
   apiFetch<AuthResponse>('/api/auth/renovar', { method: 'POST' });
 
@@ -94,27 +151,7 @@ export const renovarToken = () =>
 // Servicios de Listas
 // ═══════════════════════════════════════════════════
 
-export interface ListaResponse {
-  id: string;
-  nombre: string;
-  shareToken: string;
-  permiteEdicion: boolean;
-  totalEstimado: number;
-  creadoEn: string;
-  items: ItemResponse[];
-}
-
-export interface ItemResponse {
-  id: string;
-  nombre: string;
-  cantidad: number;
-  unidad: string;
-  precioEstimado: number;
-  comprado: boolean;
-  creadoEn: string;
-}
-
-/** GET /api/listas — Obtener todas las listas del usuario autenticado */
+/** GET /api/listas — Obtener todas las listas del usuario (sin ítems) */
 export const obtenerListas = () =>
   apiFetch<ListaResponse[]>('/api/listas');
 
@@ -125,9 +162,9 @@ export const crearLista = (nombre: string) =>
     body: JSON.stringify({ nombre }),
   });
 
-/** GET /api/listas/:id — Obtener una lista con sus ítems */
+/** GET /api/listas/:id — Obtener una lista CON sus ítems (detalle) */
 export const obtenerLista = (id: string) =>
-  apiFetch<ListaResponse>(`/api/listas/${id}`);
+  apiFetch<ListaDetalleResponse>(`/api/listas/${id}`);
 
 /** DELETE /api/listas/:id — Eliminar una lista */
 export const eliminarLista = (id: string) =>
@@ -138,19 +175,14 @@ export const eliminarLista = (id: string) =>
 // ═══════════════════════════════════════════════════
 
 /** POST /api/listas/:id/items — Agregar ítem a una lista */
-export const agregarItem = (listaId: string, data: {
-  nombre: string;
-  cantidad: number;
-  unidad?: string;
-  precioEstimado?: number;
-}) =>
+export const agregarItem = (listaId: string, data: CrearItemRequest) =>
   apiFetch<ItemResponse>(`/api/listas/${listaId}/items`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 
-/** PATCH /api/items/:id — Actualizar un ítem (marcar comprado, etc.) */
-export const actualizarItem = (itemId: string, data: Partial<ItemResponse>) =>
+/** PATCH /api/items/:id — Actualizar un ítem */
+export const actualizarItem = (itemId: string, data: ActualizarItemRequest) =>
   apiFetch<ItemResponse>(`/api/items/${itemId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -164,20 +196,8 @@ export const eliminarItem = (itemId: string) =>
 // Servicios de Productos (Catálogo + Barcode)
 // ═══════════════════════════════════════════════════
 
-export interface ProductoResponse {
-  id: string;
-  nombre: string;
-  marca: string | null;
-  barcode: string | null;
-  unidad: string | null;
-  precioEstimado: number | null;
-  isGlobal: boolean;
-}
-
-/** GET /api/productos/barcode/:code — Buscar producto por código de barras */
 export const buscarPorBarcode = (barcode: string) =>
   apiFetch<ProductoResponse[]>(`/api/productos/barcode/${barcode}`);
 
-/** GET /api/productos/buscar?texto=X — Buscar producto por texto */
 export const buscarPorTexto = (texto: string) =>
   apiFetch<ProductoResponse[]>(`/api/productos/buscar?texto=${encodeURIComponent(texto)}`);
