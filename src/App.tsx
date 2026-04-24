@@ -1,14 +1,29 @@
-import { useEffect } from 'react'
-import { useStore } from './store/useStore'
-import { ScanBarcode } from 'lucide-react'
-import './App.css'
+/**
+ * App.tsx — Punto de entrada del enrutador.
+ * 
+ * Configura las rutas de la aplicación y escucha
+ * los eventos de conectividad (online/offline) para
+ * actualizar el estado global de Zustand.
+ * 
+ * PRINCIPIO SOLID — SRP:
+ * Solo se encarga de enrutar. No contiene lógica de negocio.
+ */
+import { useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useStore } from './store/useStore';
+import ProtectedRoute from './components/ProtectedRoute';
+import AuthScreen from './pages/AuthScreen';
+import Dashboard from './pages/Dashboard';
+import ListDetails from './pages/ListDetails';
 
 function App() {
-  const { isOffline, setOfflineStatus, initStore, session } = useStore()
+  const { setOfflineStatus, initStore } = useStore();
 
   useEffect(() => {
+    // Restaurar sesión de IndexedDB al arrancar
     initStore();
 
+    // Escuchar cambios de conectividad
     const handleOnline = () => setOfflineStatus(false);
     const handleOffline = () => setOfflineStatus(true);
 
@@ -22,35 +37,32 @@ function App() {
   }, [initStore, setOfflineStatus]);
 
   return (
-    <div className="container">
-      <header className="header">
-        <h1>
-          ⚡ Compra<span style={{color: 'var(--primary)'}}>Flash</span>
-        </h1>
-        {isOffline && <span className="offline-badge">Offline Mode</span>}
-      </header>
+    <Routes>
+      {/* Ruta pública */}
+      <Route path="/auth" element={<AuthScreen />} />
 
-      <main className="glass-panel">
-        <h2>Bienvenido a tu PWA</h2>
-        <p style={{margin: '1rem 0'}}>Esta es la estructura base con Zustand, IndexedDB y Vanilla CSS funcionando.</p>
+      {/* Rutas protegidas */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lista/:id"
+        element={
+          <ProtectedRoute>
+            <ListDetails />
+          </ProtectedRoute>
+        }
+      />
 
-        {!session ? (
-            <button className="btn-primary" style={{marginRight: '1rem', marginBottom: '1rem'}}>
-              Iniciar Sesión con Google
-            </button>
-        ) : (
-            <div style={{marginBottom: '1rem'}}>
-              Hola, {session.displayName}!
-            </div>
-        )}
-
-        <button className="btn-primary" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-          <ScanBarcode size={20} />
-          Probar Escáner de Código
-        </button>
-      </main>
-    </div>
-  )
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
-export default App
+export default App;

@@ -1,0 +1,205 @@
+/* ═══════════════════════════════════════════════ */
+/* Dashboard — Estilos del panel principal        */
+/* ═══════════════════════════════════════════════ */
+
+.dash-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: rgba(241, 245, 249, 0.6);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.btn-icon:hover {
+  color: var(--text-color);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-danger:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* Saludo */
+.dash-greeting {
+  margin-bottom: 1.5rem;
+}
+
+.dash-greeting p:first-child {
+  font-size: 1.2rem;
+}
+
+.dash-greeting-sub {
+  color: rgba(241, 245, 249, 0.5);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+/* Botón full width */
+.btn-full {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* States: loading y empty */
+.dash-loading,
+.dash-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: rgba(241, 245, 249, 0.5);
+}
+
+.dash-loading .spin,
+.dash-empty svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.dash-empty-sub {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+
+/* Grid de listas */
+.listas-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lista-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.3s ease;
+}
+
+.lista-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.lista-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.lista-card-header h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.lista-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(241, 245, 249, 0.5);
+}
+
+.lista-total {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ═══════════════════ Modal ═══════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 400px;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-content h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+  font-family: var(--font-family);
+}
+
+.input-field:focus {
+  border-color: var(--primary);
+}
+
+.input-field::placeholder {
+  color: rgba(241, 245, 249, 0.3);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.btn-ghost {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(241, 245, 249, 0.7);
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+}
